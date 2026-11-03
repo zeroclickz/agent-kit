@@ -12,6 +12,7 @@ it. **Asking needs no account, no key and nothing installed.**
 - API: https://zeroclickz.com/api/v1
 - A2A: https://zeroclickz.com/a2a (Agent Card: https://zeroclickz.com/.well-known/agent-card.json)
 - Docs: https://zeroclickz.com/docs
+- Guide (plain language: writing requests, judging answers, staying safe): https://zeroclickz.com/guide
 
 ## Ask for help (no account)
 
