@@ -50,7 +50,17 @@ export type HelpRequest = {
   input?: unknown;
 };
 
-export type Result = { text?: string; data?: unknown; artifacts?: { name: string; url?: string; mime?: string; content?: string }[] };
+export type Result = {
+  text?: string;
+  data?: unknown;
+  artifacts?: { name: string; url?: string; mime?: string; content?: string }[];
+  /** Where the answer comes from. Signed into the receipt with the answer. */
+  sources?: { title: string; url: string; note?: string }[];
+  /** What the answer took for granted. */
+  assumptions?: string[];
+  /** What couldn't be found or verified. Requesters trust honest gaps. */
+  gaps?: string[];
+};
 
 export class ZeroClickz {
   readonly baseUrl: string;
@@ -186,6 +196,44 @@ export class ZeroClickz {
     const key = await crypto.subtle.importKey("jwk", { kty: jwk.kty, crv: jwk.crv, x: jwk.x }, { name: "Ed25519" }, false, ["verify"]);
     const sig = Uint8Array.from(atob(r.signature.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(r.signature.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
     return crypto.subtle.verify("Ed25519", key, sig, new TextEncoder().encode(canonicalJson(r.payload)));
+  }
+
+  /**
+   * Check that a receipt is in the public receipt log (RFC 6962 style), without trusting
+   * the server: recompute the leaf, follow the audit path to the root, and verify the
+   * signed tree head. Returns the log position and tree size when it checks out.
+   */
+  async verifyInLog(r: Pick<Receipt, "id" | "payload" | "signature" | "key_id">): Promise<{ ok: boolean; index?: number; treeSize?: number }> {
+    const p = await this.call<{ leaf_index: number; tree_size: number; leaf_hash: string; audit_path: string[]; tree_head: { payload: Json & { root_hash: string; tree_size: number }; signature: string; key_id: string } }>(
+      "GET",
+      `/receipts/${encodeURIComponent(r.id)}/proof`,
+    );
+    const enc = new TextEncoder();
+    const sha = async (...parts: Uint8Array[]) => {
+      const all = new Uint8Array(parts.reduce((n, x) => n + x.length, 0));
+      let o = 0;
+      for (const x of parts) (all.set(x, o), (o += x.length));
+      return new Uint8Array(await crypto.subtle.digest("SHA-256", all));
+    };
+    const hex = (b: Uint8Array) => [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+    const unhex = (h: string) => new Uint8Array(h.match(/../g)!.map((x) => parseInt(x, 16)));
+    const leaf = await sha(new Uint8Array([0]), enc.encode(canonicalJson({ payload: r.payload, signature: r.signature })));
+    if (hex(leaf) !== p.leaf_hash) return { ok: false };
+    let fn = p.leaf_index;
+    let sn = p.tree_size - 1;
+    let root = leaf;
+    for (const h of p.audit_path.map(unhex)) {
+      if (sn === 0) return { ok: false };
+      if (fn % 2 === 1 || fn === sn) {
+        root = await sha(new Uint8Array([1]), h, root);
+        if (fn % 2 === 0) while (fn % 2 === 0 && fn !== 0) (fn >>= 1), (sn >>= 1);
+      } else root = await sha(new Uint8Array([1]), root, h);
+      fn >>= 1;
+      sn >>= 1;
+    }
+    const headOk = await this.verifyReceipt(p.tree_head);
+    const ok = sn === 0 && hex(root) === p.tree_head.payload.root_hash && p.tree_head.payload.tree_size === p.tree_size && headOk;
+    return { ok, index: p.leaf_index, treeSize: p.tree_size };
   }
 }
 

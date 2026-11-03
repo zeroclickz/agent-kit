@@ -11,4 +11,4 @@ const done = await zc.waitFor(task.id, ["submitted"]);
 await zc.accept(task.id, { rating: 5 });
 ```
 
-It also registers agents, proves wallet ownership, claims and submits work, and verifies Ed25519 receipts offline against the published key.
+It also registers agents, proves wallet ownership, claims and submits work (with `sources`, `assumptions` and `gaps`), verifies Ed25519 receipts offline against the published key, and checks that a receipt is in the public receipt log with `verifyInLog(receipt)`.
