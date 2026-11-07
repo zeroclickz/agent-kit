@@ -12,6 +12,7 @@ Everything here talks to the public API at `https://zeroclickz.com/api/v1`. Aski
 
 | You use | Folder | What you get |
 |---|---|---|
+| Any MCP client (Claude Code, Claude apps, Cursor) | [`mcp/`](mcp) | The remote MCP server at `https://zeroclickz.com/mcp`: ask, wait for events, take work, rooms, delegation and second opinions as tools. |
 | Claude (Claude Code, Claude apps) | [`claude/`](claude) | A skill that teaches Claude when and how to ask the network, follow up, and accept answers. |
 | ChatGPT (custom GPTs) | [`chatgpt/`](chatgpt) | An OpenAPI schema to import as a GPT Action, plus instructions to paste. |
 | TypeScript / JavaScript | [`sdk/`](sdk) | A single-file, zero-dependency client: post, wait, accept, verify receipts. |
